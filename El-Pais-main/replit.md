@@ -103,26 +103,23 @@ Navigate to `/dashboard` or `/analytics` to access the dashboard.
 - ✅ **VTurb CTA Tracking for Meta Ads**: Fixed InitiateCheckout event tracking
 - ✅ **Wistia Video Player**: Migrated from VTurb to Wistia for video hosting
 
-## Wistia/Meta Ads Integration
+## VTurb/Meta Ads Integration
 
 ### How It Works
-The application tracks actual video playback time (ignoring pauses) and shows a custom CTA button after 8 minutes and 10 seconds of watched content. When clicked, it sends an `initiate_checkout` event to the dataLayer for Google Tag Manager and Meta Ads.
+The application uses VTurb smartplayer to display the sales video. When VTurb's internal CTA button becomes visible (configured in VTurb dashboard), our custom CTA button also appears below the video. When clicked, it sends an `initiate_checkout` event to the dataLayer for Google Tag Manager and Meta Ads.
 
 ### Video Player
-- **Platform**: Wistia
-- **Media ID**: 8xc87ip699
-- **Scripts**: `fast.wistia.com/player.js` and `fast.wistia.com/embed/8xc87ip699.js`
+- **Platform**: VTurb (ConverteAI)
+- **Player ID**: vid-692e4d6a3dbab420e9909b10
+- **Script**: `scripts.converteai.net/8a115e75-6120-44f3-a213-a7424af5f137/players/692e4d6a3dbab420e9909b10/v4/player.js`
 
 ### Implementation Details (QuizFlow.tsx)
-1. **Wistia API**: Uses Wistia's JavaScript API via `window._wq` queue
-2. **Play/Pause Detection**: Uses Wistia's `play` and `pause` events
-3. **Time Tracking**: Uses Wistia's `secondchange` event to track watched time
-4. **Time Accumulation**: Calculates delta between time updates, only when video is playing
-5. **Threshold Trigger**: Shows CTA button after user watches 8 minutes and 10 seconds of actual content
-6. **CTA Link**: Yellow "ACCEDER A MI PROTOCOLO PERSONALIZADO AHORA" link appears below the video
-7. **GTM Link Click Detection**: Uses `<a>` tag (not `<button>`) so GTM can detect link clicks to pay.hotmart.com
-8. **InitiateCheckout Event**: When link is clicked, pushes event to dataLayer for additional tracking
-9. **Duplicate Prevention**: Uses `ctaTrackedRef` to ensure the event only fires once per session
+1. **VTurb Smartplayer**: Uses VTurb's custom web component `<vturb-smartplayer>`
+2. **CTA Sync**: Monitors when VTurb's internal CTA button becomes visible
+3. **Custom CTA Button**: Yellow "ACCEDER A MI PROTOCOLO PERSONALIZADO AHORA" link appears below the video
+4. **GTM Link Click Detection**: Uses `<a>` tag (not `<button>`) so GTM can detect link clicks to pay.hotmart.com
+5. **InitiateCheckout Event**: When link is clicked, pushes event to dataLayer for additional tracking
+6. **Duplicate Prevention**: Uses `ctaTrackedRef` to ensure the event only fires once per session
 
 ### IMPORTANT: GTM Link Click Detection
 The GTM script is configured to detect clicks on links (`<a>` tags) that point to `pay.hotmart.com`. 
@@ -147,17 +144,14 @@ The GTM container automatically detects link clicks to `pay.hotmart.com` and fir
 - Meta Pixel `InitiateCheckout` standard event
 
 ### Debug Logs
-The implementation includes console logs prefixed with `[Video Tracker]` and `[CTA Link]` for debugging:
-- `[Video Tracker] Starting Wistia playback tracking - CTA appears after X seconds watched`
-- `[Video Tracker] Wistia player ready`
-- `[Video Tracker] PLAY - now tracking time. Accumulated so far: Xs`
-- `[Video Tracker] PAUSE - stopped tracking. Total watched: Xs`
-- `[Video Tracker] ENDED - Total watched: Xs`
-- `[Video Tracker] THRESHOLD REACHED! Watched Xs - SHOWING CTA BUTTON`
+The implementation includes console logs prefixed with `[VTurb Tracker]` and `[CTA Link]` for debugging:
+- `[VTurb Tracker] Starting VTurb smartplayer tracking`
+- `[VTurb Tracker] VTurb player found`
+- `[VTurb Tracker] VTurb CTA triggered - SHOWING CTA BUTTON`
 - `[CTA Link] Link clicked - pushing InitiateCheckout to dataLayer`
 
-### Configuration
-- **CTA_THRESHOLD_SECONDS**: Currently set to 490 seconds (8 minutes and 10 seconds)
+### VTurb CTA Configuration
+The CTA timing is configured directly in the VTurb dashboard. When the VTurb player shows its internal CTA button, the app detects this and shows the custom yellow CTA button below the video.
 
 ## Development
 

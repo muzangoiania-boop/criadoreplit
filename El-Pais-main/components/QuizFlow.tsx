@@ -142,134 +142,92 @@ export const QuizFlow = () => {
     }
   }, [step]);
 
-  // Load Wistia SDK when reaching video page
+  // Load VTurb SDK when reaching video page
   useEffect(() => {
     if (step === 18) {
-      const existingPlayerScript = document.querySelector('script[src*="fast.wistia.com/player.js"]');
-      if (!existingPlayerScript) {
-        const playerScript = document.createElement('script');
-        playerScript.src = 'https://fast.wistia.com/player.js';
-        playerScript.async = true;
-        document.head.appendChild(playerScript);
-      }
-      
-      const existingEmbedScript = document.querySelector('script[src*="fast.wistia.com/embed/8xc87ip699.js"]');
-      if (!existingEmbedScript) {
-        const embedScript = document.createElement('script');
-        embedScript.src = 'https://fast.wistia.com/embed/8xc87ip699.js';
-        embedScript.async = true;
-        embedScript.type = 'module';
-        document.head.appendChild(embedScript);
+      const existingVturbScript = document.querySelector('script[src*="scripts.converteai.net"]');
+      if (!existingVturbScript) {
+        const vturbScript = document.createElement('script');
+        vturbScript.src = 'https://scripts.converteai.net/8a115e75-6120-44f3-a213-a7424af5f137/players/692e4d6a3dbab420e9909b10/v4/player.js';
+        vturbScript.async = true;
+        document.head.appendChild(vturbScript);
       }
     }
   }, [step]);
 
-  // Track actual video playback time (ignoring pauses) and show CTA after threshold
-  const isPlayingRef = useRef(false);
-  const lastTimestampRef = useRef(0);
-  const accumulatedSecondsRef = useRef(0);
-  const wistiaBindedRef = useRef(false);
-  const CTA_THRESHOLD_SECONDS = 490; // 8 minutes and 10 seconds
+  // Track VTurb smartplayer CTA button visibility
+  const vturbBindedRef = useRef(false);
   
   useEffect(() => {
     if (step !== 18) return;
     
-    console.log('[Video Tracker] Starting Wistia playback tracking - CTA appears after', CTA_THRESHOLD_SECONDS, 'seconds watched');
+    console.log('[VTurb Tracker] Starting VTurb smartplayer tracking');
     
     // Reset tracking state when entering video page
-    isPlayingRef.current = false;
-    lastTimestampRef.current = 0;
-    accumulatedSecondsRef.current = 0;
-    wistiaBindedRef.current = false;
+    vturbBindedRef.current = false;
     
-    // Event handlers for Wistia web component
-    const handlePlay = () => {
-      isPlayingRef.current = true;
-      console.log('[Video Tracker] PLAY - now tracking time. Accumulated so far:', accumulatedSecondsRef.current.toFixed(1), 's');
-    };
-    
-    const handlePause = () => {
-      isPlayingRef.current = false;
-      console.log('[Video Tracker] PAUSE - stopped tracking. Total watched:', accumulatedSecondsRef.current.toFixed(1), 's');
-    };
-    
-    const handleEnd = () => {
-      isPlayingRef.current = false;
-      console.log('[Video Tracker] ENDED - Total watched:', accumulatedSecondsRef.current.toFixed(1), 's');
-    };
-    
-    const handleTimeUpdate = (event: any) => {
-      const currentTime = event.detail?.currentTime ?? event.target?.currentTime ?? 0;
-      
-      // Only accumulate time if video is playing and time moved forward
-      if (isPlayingRef.current && currentTime > lastTimestampRef.current) {
-        const delta = currentTime - lastTimestampRef.current;
-        
-        // Only add reasonable deltas (ignore big jumps from seeking forward)
-        if (delta > 0 && delta < 2) {
-          accumulatedSecondsRef.current += delta;
-        }
-      }
-      
-      // Update last timestamp
-      lastTimestampRef.current = currentTime;
-      
-      // Show CTA button once threshold is reached
-      if (accumulatedSecondsRef.current >= CTA_THRESHOLD_SECONDS && !showCTAButton) {
-        console.log('[Video Tracker] THRESHOLD REACHED! Watched', accumulatedSecondsRef.current.toFixed(1), 's - SHOWING CTA BUTTON');
+    // VTurb fires a custom event when the CTA button should appear
+    // We listen for the smartplayer's internal CTA trigger
+    const handleVturbCTA = () => {
+      if (!showCTAButton) {
+        console.log('[VTurb Tracker] VTurb CTA triggered - SHOWING CTA BUTTON');
         setShowCTAButton(true);
       }
     };
     
-    let playerElement: HTMLElement | null = null;
-    let pollingInterval: NodeJS.Timeout | null = null;
-    
-    // Wistia web component binding using native DOM events
-    const bindWistiaPlayer = () => {
-      if (wistiaBindedRef.current) return;
+    // Listen for VTurb smartplayer events
+    const setupVturbListener = () => {
+      if (vturbBindedRef.current) return;
       
-      // Find the wistia-player element
-      playerElement = document.querySelector('wistia-player[media-id="8xc87ip699"]');
+      const playerElement = document.querySelector('#vid-692e4d6a3dbab420e9909b10');
       
       if (playerElement) {
-        wistiaBindedRef.current = true;
-        console.log('[Video Tracker] Wistia player found - binding events');
+        vturbBindedRef.current = true;
+        console.log('[VTurb Tracker] VTurb player found');
         
-        // Use native DOM addEventListener for web component events
-        playerElement.addEventListener('play', handlePlay);
-        playerElement.addEventListener('pause', handlePause);
-        playerElement.addEventListener('end', handleEnd);
-        playerElement.addEventListener('time-update', handleTimeUpdate);
+        // VTurb uses window events for communication
+        // The player will show its own CTA button - we sync with that
+        const checkForVturbCTA = () => {
+          // Check if VTurb's internal CTA is visible
+          const vturbCTA = document.querySelector('.smartplayer-call-to-action-btn, [class*="smartplayer"][class*="cta"], .call-action-btn');
+          if (vturbCTA) {
+            const style = window.getComputedStyle(vturbCTA);
+            if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+              handleVturbCTA();
+              return true;
+            }
+          }
+          return false;
+        };
         
-        console.log('[Video Tracker] Events bound successfully');
+        // Poll for VTurb CTA visibility
+        const ctaCheckInterval = setInterval(() => {
+          if (checkForVturbCTA()) {
+            clearInterval(ctaCheckInterval);
+          }
+        }, 1000);
         
-        // Stop polling once bound
-        if (pollingInterval) {
-          clearInterval(pollingInterval);
-          pollingInterval = null;
-        }
-      } else {
-        console.log('[Video Tracker] Waiting for Wistia player element...');
+        // Clean up interval after 20 minutes max
+        setTimeout(() => clearInterval(ctaCheckInterval), 20 * 60 * 1000);
+        
+        return () => clearInterval(ctaCheckInterval);
       }
     };
     
-    // Poll every 500ms until player is found (more reliable than fixed timeouts)
-    pollingInterval = setInterval(bindWistiaPlayer, 500);
+    // Poll until player is found
+    const pollingInterval = setInterval(() => {
+      const cleanup = setupVturbListener();
+      if (vturbBindedRef.current && pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    }, 500);
     
     // Also try immediately
-    bindWistiaPlayer();
+    setupVturbListener();
     
     return () => {
       if (pollingInterval) {
         clearInterval(pollingInterval);
-      }
-      
-      // Clean up event listeners
-      if (playerElement) {
-        playerElement.removeEventListener('play', handlePlay);
-        playerElement.removeEventListener('pause', handlePause);
-        playerElement.removeEventListener('end', handleEnd);
-        playerElement.removeEventListener('time-update', handleTimeUpdate);
       }
     };
   }, [step, showCTAButton]);
@@ -805,20 +763,11 @@ export const QuizFlow = () => {
         MIRA EL VIDEO A CONTINUACIÓN Y DESCUBRE CÓMO ACCEDER A TU PROTOCOLO DE GELATINA REDUCTORA.
       </h2>
 
-      {/* Wistia Video Player */}
+      {/* VTurb Video Player */}
       <div className="relative w-full rounded-lg overflow-hidden">
         <div 
-          style={{ margin: '0 auto', width: '100%', maxWidth: '400px' }}
           dangerouslySetInnerHTML={{ __html: `
-            <style>
-              wistia-player[media-id='8xc87ip699']:not(:defined) {
-                background: center / contain no-repeat url('https://fast.wistia.com/embed/medias/8xc87ip699/swatch');
-                display: block;
-                filter: blur(5px);
-                padding-top: 152.5%;
-              }
-            </style>
-            <wistia-player media-id="8xc87ip699" seo="false" aspect="0.6557377049180327"></wistia-player>
+            <vturb-smartplayer id="vid-692e4d6a3dbab420e9909b10" style="display: block; margin: 0 auto; width: 100%; max-width: 400px;"></vturb-smartplayer>
           `}}
         />
       </div>
