@@ -155,93 +155,21 @@ export const QuizFlow = () => {
     }
   }, [step]);
 
-  // Track VTurb smartplayer CTA button visibility via postMessage events
-  const vturbBindedRef = useRef(false);
+  // Show CTA button after 5 seconds on video page
+  const CTA_DELAY_SECONDS = 5;
   
   useEffect(() => {
     if (step !== 18) return;
     
-    console.log('[VTurb Tracker] Starting VTurb iframe tracking');
-    
-    // Reset tracking state when entering video page
-    vturbBindedRef.current = false;
-    
-    // Handle VTurb CTA trigger
-    const handleVturbCTA = () => {
-      if (!showCTAButton) {
-        console.log('[VTurb Tracker] VTurb CTA triggered - SHOWING CTA BUTTON');
-        setShowCTAButton(true);
-      }
-    };
-    
-    // VTurb iframe communicates via postMessage
-    const handleMessage = (event: MessageEvent) => {
-      // Check if message is from VTurb/ConverteAI
-      if (event.origin.includes('converteai.net') || event.origin.includes('scripts.converteai.net')) {
-        console.log('[VTurb Tracker] Received message from VTurb:', event.data);
-        
-        // VTurb sends various events - check for CTA related ones
-        if (typeof event.data === 'string') {
-          const data = event.data.toLowerCase();
-          if (data.includes('cta') || data.includes('button') || data.includes('action')) {
-            handleVturbCTA();
-          }
-        } else if (typeof event.data === 'object' && event.data !== null) {
-          const dataStr = JSON.stringify(event.data).toLowerCase();
-          if (dataStr.includes('cta') || dataStr.includes('button') || dataStr.includes('action') || dataStr.includes('show')) {
-            handleVturbCTA();
-          }
-        }
-      }
-    };
-    
-    // Listen for postMessage from VTurb iframe
-    window.addEventListener('message', handleMessage);
-    
-    // Also listen for smartplayer global events (VTurb SDK)
-    const handleSmartplayerEvent = (e: any) => {
-      console.log('[VTurb Tracker] Smartplayer event:', e.type, e.detail);
-      if (e.type === 'smartplayer.cta' || e.type === 'smartplayer.button.show') {
-        handleVturbCTA();
-      }
-    };
-    
-    window.addEventListener('smartplayer.cta', handleSmartplayerEvent);
-    window.addEventListener('smartplayer.button.show', handleSmartplayerEvent);
-    
-    // Fallback: Check for VTurb global variable that indicates CTA should show
-    const checkVturbGlobal = () => {
-      const win = window as any;
-      if (win.smartplayer && win.smartplayer.instances) {
-        const instances = Object.values(win.smartplayer.instances) as any[];
-        for (const instance of instances) {
-          if (instance && (instance.ctaVisible || instance.buttonVisible || instance.showCta)) {
-            handleVturbCTA();
-            return true;
-          }
-        }
-      }
-      return false;
-    };
-    
-    // Poll for VTurb global state as fallback
-    const pollingInterval = setInterval(() => {
-      if (checkVturbGlobal()) {
-        clearInterval(pollingInterval);
-      }
-    }, 1000);
-    
-    // Clean up after 20 minutes max
-    const cleanupTimeout = setTimeout(() => clearInterval(pollingInterval), 20 * 60 * 1000);
+    // Show CTA button after delay
+    const timer = setTimeout(() => {
+      setShowCTAButton(true);
+    }, CTA_DELAY_SECONDS * 1000);
     
     return () => {
-      window.removeEventListener('message', handleMessage);
-      window.removeEventListener('smartplayer.cta', handleSmartplayerEvent);
-      window.removeEventListener('smartplayer.button.show', handleSmartplayerEvent);
-      clearInterval(pollingInterval);
-      clearTimeout(cleanupTimeout);
+      clearTimeout(timer);
     };
-  }, [step, showCTAButton]);
+  }, [step]);
 
   // Preload all images in background after initial page load
   useEffect(() => {
