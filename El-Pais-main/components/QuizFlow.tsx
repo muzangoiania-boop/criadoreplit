@@ -155,19 +155,18 @@ export const QuizFlow = () => {
     }
   }, [step]);
 
-  // Track VTurb smartplayer CTA button visibility
+  // Track VTurb smartplayer CTA button visibility via postMessage events
   const vturbBindedRef = useRef(false);
   
   useEffect(() => {
     if (step !== 18) return;
     
-    console.log('[VTurb Tracker] Starting VTurb smartplayer tracking');
+    console.log('[VTurb Tracker] Starting VTurb iframe tracking');
     
     // Reset tracking state when entering video page
     vturbBindedRef.current = false;
     
-    // VTurb fires a custom event when the CTA button should appear
-    // We listen for the smartplayer's internal CTA trigger
+    // Handle VTurb CTA trigger
     const handleVturbCTA = () => {
       if (!showCTAButton) {
         console.log('[VTurb Tracker] VTurb CTA triggered - SHOWING CTA BUTTON');
@@ -175,60 +174,72 @@ export const QuizFlow = () => {
       }
     };
     
-    // Listen for VTurb smartplayer events
-    const setupVturbListener = () => {
-      if (vturbBindedRef.current) return;
-      
-      const playerElement = document.querySelector('#vid-692e4d6a3dbab420e9909b10');
-      
-      if (playerElement) {
-        vturbBindedRef.current = true;
-        console.log('[VTurb Tracker] VTurb player found');
+    // VTurb iframe communicates via postMessage
+    const handleMessage = (event: MessageEvent) => {
+      // Check if message is from VTurb/ConverteAI
+      if (event.origin.includes('converteai.net') || event.origin.includes('scripts.converteai.net')) {
+        console.log('[VTurb Tracker] Received message from VTurb:', event.data);
         
-        // VTurb uses window events for communication
-        // The player will show its own CTA button - we sync with that
-        const checkForVturbCTA = () => {
-          // Check if VTurb's internal CTA is visible
-          const vturbCTA = document.querySelector('.smartplayer-call-to-action-btn, [class*="smartplayer"][class*="cta"], .call-action-btn');
-          if (vturbCTA) {
-            const style = window.getComputedStyle(vturbCTA);
-            if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
-              handleVturbCTA();
-              return true;
-            }
+        // VTurb sends various events - check for CTA related ones
+        if (typeof event.data === 'string') {
+          const data = event.data.toLowerCase();
+          if (data.includes('cta') || data.includes('button') || data.includes('action')) {
+            handleVturbCTA();
           }
-          return false;
-        };
-        
-        // Poll for VTurb CTA visibility
-        const ctaCheckInterval = setInterval(() => {
-          if (checkForVturbCTA()) {
-            clearInterval(ctaCheckInterval);
+        } else if (typeof event.data === 'object' && event.data !== null) {
+          const dataStr = JSON.stringify(event.data).toLowerCase();
+          if (dataStr.includes('cta') || dataStr.includes('button') || dataStr.includes('action') || dataStr.includes('show')) {
+            handleVturbCTA();
           }
-        }, 1000);
-        
-        // Clean up interval after 20 minutes max
-        setTimeout(() => clearInterval(ctaCheckInterval), 20 * 60 * 1000);
-        
-        return () => clearInterval(ctaCheckInterval);
+        }
       }
     };
     
-    // Poll until player is found
+    // Listen for postMessage from VTurb iframe
+    window.addEventListener('message', handleMessage);
+    
+    // Also listen for smartplayer global events (VTurb SDK)
+    const handleSmartplayerEvent = (e: any) => {
+      console.log('[VTurb Tracker] Smartplayer event:', e.type, e.detail);
+      if (e.type === 'smartplayer.cta' || e.type === 'smartplayer.button.show') {
+        handleVturbCTA();
+      }
+    };
+    
+    window.addEventListener('smartplayer.cta', handleSmartplayerEvent);
+    window.addEventListener('smartplayer.button.show', handleSmartplayerEvent);
+    
+    // Fallback: Check for VTurb global variable that indicates CTA should show
+    const checkVturbGlobal = () => {
+      const win = window as any;
+      if (win.smartplayer && win.smartplayer.instances) {
+        const instances = Object.values(win.smartplayer.instances) as any[];
+        for (const instance of instances) {
+          if (instance && (instance.ctaVisible || instance.buttonVisible || instance.showCta)) {
+            handleVturbCTA();
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    
+    // Poll for VTurb global state as fallback
     const pollingInterval = setInterval(() => {
-      const cleanup = setupVturbListener();
-      if (vturbBindedRef.current && pollingInterval) {
+      if (checkVturbGlobal()) {
         clearInterval(pollingInterval);
       }
-    }, 500);
+    }, 1000);
     
-    // Also try immediately
-    setupVturbListener();
+    // Clean up after 20 minutes max
+    const cleanupTimeout = setTimeout(() => clearInterval(pollingInterval), 20 * 60 * 1000);
     
     return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('smartplayer.cta', handleSmartplayerEvent);
+      window.removeEventListener('smartplayer.button.show', handleSmartplayerEvent);
+      clearInterval(pollingInterval);
+      clearTimeout(cleanupTimeout);
     };
   }, [step, showCTAButton]);
 
