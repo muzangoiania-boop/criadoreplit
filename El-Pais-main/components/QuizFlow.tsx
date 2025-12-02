@@ -145,10 +145,10 @@ export const QuizFlow = () => {
   // Load VTurb SDK when reaching video page
   useEffect(() => {
     if (step === 18) {
-      const existingVturbScript = document.querySelector('script[src*="scripts.converteai.net"]');
+      const existingVturbScript = document.querySelector('script[src*="smartplayer-wc"]');
       if (!existingVturbScript) {
         const vturbScript = document.createElement('script');
-        vturbScript.src = 'https://scripts.converteai.net/8a115e75-6120-44f3-a213-a7424af5f137/players/692e4d6a3dbab420e9909b10/v4/player.js';
+        vturbScript.src = 'https://scripts.converteai.net/lib/js/smartplayer-wc/v4/sdk.js';
         vturbScript.async = true;
         document.head.appendChild(vturbScript);
       }
@@ -763,11 +763,15 @@ export const QuizFlow = () => {
         MIRA EL VIDEO A CONTINUACIÓN Y DESCUBRE CÓMO ACCEDER A TU PROTOCOLO DE GELATINA REDUCTORA.
       </h2>
 
-      {/* VTurb Video Player */}
+      {/* VTurb Video Player - Iframe */}
       <div className="relative w-full rounded-lg overflow-hidden">
         <div 
           dangerouslySetInnerHTML={{ __html: `
-            <vturb-smartplayer id="vid-692e4d6a3dbab420e9909b10" style="display: block; margin: 0 auto; width: 100%; max-width: 400px;"></vturb-smartplayer>
+            <div id="ifr_692e4d6a3dbab420e9909b10_wrapper" style="margin: 0 auto; width: 100%; max-width: 400px;">
+              <div style="position: relative; padding: 152.59259259259258% 0 0 0;" id="ifr_692e4d6a3dbab420e9909b10_aspect">
+                <iframe frameborder="0" allowfullscreen src="about:blank" id="ifr_692e4d6a3dbab420e9909b10" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" referrerpolicy="origin" onload="this.onload=null, this.src='https://scripts.converteai.net/8a115e75-6120-44f3-a213-a7424af5f137/players/692e4d6a3dbab420e9909b10/v4/embed.html'+(location.search||'?')+'&vl='+encodeURIComponent(location.href)"></iframe>
+              </div>
+            </div>
           `}}
         />
       </div>
@@ -777,7 +781,7 @@ export const QuizFlow = () => {
       {showCTAButton && (
         <div className="mt-4 animate-fade-in">
           <a
-            href="https://pay.hotmart.com/I103092154N?off=8pqi3d4c&checkoutMode=10"
+            href="https://pay.hotmart.com/E103227991B?checkoutMode=10"
             onClick={handleCTAClick}
             className="w-full bg-news-yellow hover:bg-[#ebd040] text-black font-bold text-lg py-4 px-6 rounded shadow-md transition-all animate-pulse-cta-strong flex items-center justify-center gap-2"
           >
